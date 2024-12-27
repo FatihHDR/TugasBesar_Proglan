@@ -1,60 +1,71 @@
-# FinancialApp #
-FinancialApp adalah aplikasi GUI untuk mengelola transaksi keuangan, dirancang khusus untuk Usaha Mikro, Kecil, dan Menengah (UMKM). Aplikasi ini memungkinkan pengguna untuk menambah, menghapus, dan mengekspor transaksi ke dalam format PDF. Selain itu, aplikasi ini juga menyediakan ringkasan keuangan yang mencakup pemasukan, pengeluaran, dan saldo.
+# FinancialApp
+FinancialApp is a Java-based GUI application designed for managing financial transactions. The application allows users to add, delete, and export transactions to a PDF file. With the recent updates, the application now utilizes Spring Boot for backend services and stores transaction data in a MySQL database.
 
-## Fitur Utama ##
-- Autentikasi Pengguna: Pengguna harus masuk dengan username dan password untuk mengakses aplikasi.
-- Manajemen Transaksi: Pengguna dapat menambah, menghapus, dan mencari transaksi berdasarkan deskripsi.
-- Ringkasan Keuangan: Menampilkan total pemasukan, pengeluaran, dan saldo saat ini.
-- Ekspor ke PDF: Pengguna dapat mengekspor laporan transaksi ke dalam format PDF dan mengirimkannya melalui email.
-- Antarmuka Pengguna yang Ramah: Desain antarmuka yang sederhana dan intuitif untuk memudahkan pengguna.
-
-## Prasyarat ##
-Sebelum menjalankan aplikasi ini, pastikan Anda memiliki:
-- Java Development Kit (JDK) terinstal di sistem Anda.
-- Library iText untuk PDF (tambahkan ke classpath).
-- Library JSON (org.json) untuk pengolahan data JSON.
-- Library JavaMail untuk pengiriman email.
+## Features
+- User Authentication: Secure login for users.
+- Transaction Management: Add, delete, and view transactions.
+- Data Export: Export transaction data to PDF format.
+- Database Integration: Store transaction data in a MySQL database.
   
-## Instalasi ##
-1. Clone Repository:
+## Technologies Used
+- Java: The primary programming language for the application.
+- Spring Boot: Framework for building the backend services.
+- MySQL: Database for storing transaction data.
+- JUnit: Testing framework for unit tests.
+- iText: Library for generating PDF files.
+- JSON: For data interchange.
+
+## Prerequisites
+Before running the application, ensure you have the following installed:
+- Java Development Kit (JDK) 11 or higher
+- MySQL Server
+- Maven (for dependency management)
+- Setup Instructions
+  
+## Clone the Repository:
 ```
-git clone https://github.com/FatihHDR/.git
+git clone https://github.com/yourusername/FinancialApp.git
 cd FinancialApp
 ```
-2. Tambahkan Dependensi: Pastikan untuk menambahkan dependensi berikut ke dalam proyek Anda:
-- iText
-- JSON
-- JavaMail
-3. Jalankan Aplikasi: Kompilasi dan jalankan aplikasi menggunakan IDE favorit Anda atau melalui command line:
+
+## Configure MySQL Database:
+Create a new database in MySQL:
 ```
-javac FinancialApp.java
-java FinancialApp
+CREATE DATABASE financial_app;
+```
+## Update the application.properties file in the src/main/resources directory with your MySQL credentials:
+```
+spring.datasource.url=jdbc:mysql://localhost:3306/financial_app
+spring.datasource.username=your_username
+spring.datasource.password=your_password
+spring.jpa.hibernate.ddl-auto=update
 ```
 
-## Cara Menggunakan ##
-- Masuk: Masukkan username dan password (default: admin / password).
-- Tambah Transaksi: Klik tombol "Tambah Transaksi" untuk membuka dialog dan masukkan detail transaksi.
-- Hapus Transaksi: Pilih transaksi yang ingin dihapus dan klik tombol "Hapus Transaksi".
-- Cari Transaksi: Gunakan kolom pencarian untuk menemukan transaksi berdasarkan deskripsi.
-- Ekspor ke PDF: Klik tombol "Ekspor ke PDF" untuk menyimpan laporan transaksi ke dalam file PDF dan mengirimkannya melalui email.
-- Keluar: Klik tombol "Keluar" untuk keluar dari aplikasi.
-  
-## Struktur Kode ##
-- FinancialApp: Kelas utama yang mengatur antarmuka pengguna dan logika aplikasi.
-- loadTransactions(): Memuat transaksi dari file JSON.
-- saveTransactions(): Menyimpan transaksi ke file JSON.
-- exportToPDF(): Mengekspor transaksi ke file PDF.
-- sendEmail(): Mengirim email dengan lampiran file PDF.
-  
-## Catatan Keamanan ##
-Pastikan untuk mengganti username dan password default sebelum menggunakan aplikasi ini dalam lingkungan produksi.
-Jangan menyimpan kredensial email dalam kode sumber. Gunakan metode yang lebih aman untuk mengelola kredensial.
+## Build the Application:
 
-## Lisensi ##
-Aplikasi ini dilisensikan di bawah Lisensi MIT.
+Use Maven to build the project:
+```
+mvn clean install
+```
+## Run the Application:
+### Start the Spring Boot application:
+```
+mvn spring-boot:run
+```
 
-## Kontribusi ##
-Kontribusi sangat diterima! Silakan buka issue atau kirim pull request untuk perbaikan atau fitur baru.
+### Access the Application:
+The application will be available at http://localhost:8080.
 
-## Kontak ##
-Untuk pertanyaan atau saran, silakan hubungi [fatahillah.alt@gmail.com].
+### Running Tests
+To run the unit tests, use the following command:
+```
+mvn test
+```
+
+## Usage
+- Login: Use the credentials admin for username and password for password to log in.
+- Manage Transactions: Add, delete, and view transactions through the GUI.
+- Export to PDF: Export your transaction data to a PDF file.
+
+## Contributing
+Contributions are welcome! Please feel free to submit a pull request or open an issue for any enhancements or bug fixes.
