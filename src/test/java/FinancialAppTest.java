@@ -1,17 +1,50 @@
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
+import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
+import java.awt.*;
 import java.util.HashMap;
 import java.util.Map;
+import java.lang.reflect.InvocationTargetException;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class FinancialAppTest {
     private FinancialApp app;
 
-    @Before
+    @BeforeEach
     public void setUp() {
-        app = new FinancialApp();
+        // Initialize the FinancialApp instance on the EDT
+        try {
+            SwingUtilities.invokeAndWait(() -> {
+                app = new FinancialApp();
+            });
+        } catch (InterruptedException | InvocationTargetException e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Test
+    public void testLoginSuccess() {
+        // Simulate user input for login
+        SwingUtilities.invokeLater(() -> {
+            app.openSignInDialog(); // Open the login dialog
+            // Simulate entering username and password
+            app.usernameField.setText("admin");
+            app.passwordField.setText("password");
+            app.signInButton.doClick(); // Simulate button click
+        });
+
+        // Wait for the dialog to close
+        try {
+            Thread.sleep(100); // Wait a bit for the dialog to process
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        // Check if the main frame is visible after successful login
+        assertTrue(app.frame.isVisible(), "Main frame should be visible after successful login.");
     }
 
     @Test
@@ -21,35 +54,73 @@ public class FinancialAppTest {
     }
 
     @Test
-    public void testAddTransaction() {
-        Map<String, String> transaction = new HashMap<>();
-        transaction.put("date", "2023-10-01");
-        transaction.put("desc", "Penjualan");
-        transaction.put("category", "Pemasukan");
-        transaction.put("amount", "100000");
+    public void testUpdateSummary() {
+        // Add some transactions
+        SwingUtilities.invokeLater(() -> {
+            app.transactions.add(createTransaction("2023-10-01", "Salary", "Pemasukan", "5000"));
+            app.transactions.add(createTransaction("2023-10-02", "Groceries", "Pengeluaran", "1500"));
+            app.updateSummary();
+        });
 
-        app.addTransaction(transaction); // Anda perlu menambahkan metode ini di FinancialApp
+        // Wait for the summary to update
+        try {
+            Thread.sleep(100); // Wait a bit for the summary to process
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
 
-        assertEquals(1, app.getTransactions().size()); // Anda perlu menambahkan metode ini di FinancialApp
-        assertEquals("Penjualan", app.getTransactions().get(0).get("desc"));
+        assertEquals("Pemasukan: Rp5,000", app.getIncomeLabelText());
+        assertEquals("Pengeluaran: Rp1,500", app.getExpenseLabelText());
+        assertEquals("Saldo: Rp3,500", app.getBalanceLabelText());
     }
 
     @Test
-    public void testUpdateSummary() {
-        app.addTransaction(createTransaction("2023-10-01", "Penjualan", "Pemasukan", "100000"));
-        app.addTransaction(createTransaction("2023-10-02", "Belanja", "Pengeluaran", "50000"));
+    public void testFilterTransactions() {
+        SwingUtilities.invokeLater(() -> {
+            app.transactions.add(createTransaction("2023-10-01", "Salary", "Pemasukan", "5000"));
+            app.transactions.add(createTransaction("2023-10-02", "Groceries", "Pengeluaran", "1500"));
+            app.refreshTable();
+            app.filterTransactions("Salary");
+        });
 
-        app.updateSummary(); // Anda perlu menambahkan metode ini di FinancialApp
+        try {
+            Thread.sleep(100); // Wait a bit for the filter to process
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
 
-        assertEquals("Pemasukan: Rp1,000,000", app.getIncomeLabelText()); // Anda perlu menambahkan metode ini di FinancialApp
-        assertEquals("Pengeluaran: Rp50,000", app.getExpenseLabelText()); // Anda perlu menambahkan metode ini di FinancialApp
-        assertEquals("Saldo: Rp950,000", app.getBalanceLabelText()); // Anda perlu menambahkan metode ini di FinancialApp
+        DefaultTableModel model = (DefaultTableModel) app.table.getModel();
+        assertEquals(1, model.getRowCount());
+        assertEquals("Salary", model.getValueAt(0, 2)); // Check description
     }
 
-    private Map<String, String> createTransaction(String date, String desc, String category, String amount) {
+    @Test
+    public void testDeleteSelectedTransactions() {
+        // Add some transactions
+        SwingUtilities.invokeLater(() -> {
+            app.transactions.add(createTransaction("2023-10-01", "Salary", "Pemasukan", "5000"));
+            app.transactions.add(createTransaction("2023-10-02", "Groceries", "Pengeluaran", "1500"));
+            app.refreshTable();
+
+            app.table.setValueAt(true, 0, 0);
+            app.deleteSelectedTransactions();
+        });
+
+        try {
+            Thread.sleep(100);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        DefaultTableModel model = (DefaultTableModel) app.table.getModel();
+        assertEquals(1, model.getRowCount());
+        assertEquals("Groceries", model.getValueAt(0, 2)); // Ensure the remaining transaction is the correct one
+    }
+
+    private Map<String, String> createTransaction(String date, String description , String category, String amount) {
         Map<String, String> transaction = new HashMap<>();
         transaction.put("date", date);
-        transaction.put("desc", desc);
+        transaction.put("description", description);
         transaction.put("category", category);
         transaction.put("amount", amount);
         return transaction;

@@ -1,17 +1,20 @@
-import org.json.JSONArray;
-import org.json.JSONObject;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+
 import com.itextpdf.kernel.pdf.PdfDocument;
 import com.itextpdf.kernel.pdf.PdfWriter;
 import com.itextpdf.layout.Document;
 import com.itextpdf.layout.element.Paragraph;
 import com.itextpdf.layout.element.Table;
+import com.main.database.DatabaseConnection;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.JTableHeader;
 import java.awt.*;
-import java.io.*;
 import java.util.*;
 import java.util.List;
 import java.text.SimpleDateFormat;
@@ -21,16 +24,22 @@ import javax.mail.internet.*;
 import javax.activation.*;
 import java.util.Properties;
 
+import java.text.NumberFormat;
+import java.util.Locale;
+
 /**
  * FinancialApp adalah aplikasi GUI untuk mengelola transaksi keuangan.
  * Aplikasi ini memungkinkan pengguna untuk menambah, menghapus, dan mengekspor transaksi ke berkas PDF.
  */
 public class FinancialApp {
-    private JFrame frame;
-    private JTable table;
+    JFrame frame;
+    JTable table;
     private DefaultTableModel tableModel;
-    private ArrayList<Map<String, String>> transactions;
+    public ArrayList<Map<String, String>> transactions;
     private JLabel incomeLabel, expenseLabel, balanceLabel;
+    public JTextField usernameField;
+    public JPasswordField passwordField;
+    public JButton signInButton;
 
     /**
      * Membangun instance FinancialApp dan menginisialisasi komponen GUI.
@@ -69,7 +78,6 @@ public class FinancialApp {
 
         frame.add(topPanel, BorderLayout.NORTH);
 
-        // Panel bawah (ringkasan keuangan)
         JPanel summaryPanel = new JPanel();
         summaryPanel.setBackground(new Color(220, 220, 220));
         incomeLabel = new JLabel("Pemasukan: 0");
@@ -90,7 +98,6 @@ public class FinancialApp {
         logoutButton.addActionListener(e -> {
             frame.setVisible(false);
             openSignInDialog();
-            frame.setEnabled(false);
         });
 
         frame.setVisible(true);
@@ -98,17 +105,18 @@ public class FinancialApp {
         openSignInDialog();
     }
 
+
     /**
      * Membuka dialog masuk untuk autentikasi pengguna.
      */
-    private void openSignInDialog() {
+    void openSignInDialog() {
         frame.setVisible(false);
 
         JDialog dialog = new JDialog(frame, "Sign In", true);
-        dialog.setSize(400, 200);
+        dialog.setSize(400, 300);
         dialog.setLayout(new GridBagLayout());
         dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
-        dialog.getContentPane().setBackground(new Color(240, 240, 240));
+        dialog.getContentPane().setBackground(new Color(255, 255, 255));
 
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.fill = GridBagConstraints.HORIZONTAL;
@@ -162,6 +170,7 @@ public class FinancialApp {
 
         dialog.setVisible(true);
     }
+
 
     /**
      * Membuka dialog untuk menambahkan transaksi baru.
@@ -225,7 +234,7 @@ public class FinancialApp {
     /**
      * Refresh tabel transaksi untuk menampilkan transaksi saat ini.
      */
-    private void refreshTable() {
+    void refreshTable() {
         tableModel.setRowCount(0);
         for (Map<String, String> transaction : transactions) {
             tableModel.addRow(new Object[]{
@@ -257,7 +266,7 @@ public class FinancialApp {
     /**
      * Memperbarui label ringkasan untuk pendapatan, pengeluaran, dan saldo.
      */
-    private void updateSummary() {
+    public void updateSummary() {
         double totalIncome = 0, totalExpense = 0;
         for (Map<String, String> transaction : transactions) {
             double amount = Double.parseDouble(transaction.get("amount"));
@@ -277,7 +286,7 @@ public class FinancialApp {
      *
      * @param keyword kata kunci untuk memfilter transaksi berdasarkan deskripsi
      */
-    private void filterTransactions(String keyword) {
+    public void filterTransactions(String keyword) {
         tableModel.setRowCount(0);
         for (Map<String, String> transaction : transactions) {
             if (transaction.get("desc").toLowerCase().contains(keyword.toLowerCase())) {
@@ -293,17 +302,22 @@ public class FinancialApp {
     }
 
     /**
-     * Menyimpan transaksi terkini ke berkas JSON.
+     * Menyimpan transaksi terkini ke mysql.
      */
     private void saveTransactions() {
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter("transactions.json"))) {
-            JSONArray jsonArray = new JSONArray();
-            for (Map<String, String> transaction : transactions) {
-                JSONObject jsonObject = new JSONObject(transaction);
-                jsonArray.put(jsonObject);
+        try (Connection connection = DatabaseConnection.getConnection()) {
+            String sql = "INSERT INTO transactions (date, description, category, amount) VALUES (?, ?, ?, ?)";
+            try (PreparedStatement statement = connection.prepareStatement(sql)) {
+                for (Map<String, String> transaction : transactions) {
+                    statement.setString(1, transaction.get("date"));
+                    statement.setString(2, transaction.get("desc"));
+                    statement.setString(3, transaction.get("category"));
+                    statement.setDouble(4, Double.parseDouble(transaction.get("amount")));
+                    statement.addBatch();
+                }
+                statement.executeBatch();
             }
-            writer.write(jsonArray.toString());
-        } catch (IOException e) {
+        } catch (SQLException e) {
             e.printStackTrace();
         }
     }
@@ -312,35 +326,30 @@ public class FinancialApp {
      * Memuat transaksi dari file JSON ke dalam aplikasi.
      */
     private void loadTransactions() {
-        File file = new File("transactions.json");
-        if (file.exists()) {
-            try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
-                StringBuilder json = new StringBuilder();
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    json.append(line);
-                }
-                JSONArray jsonArray = new JSONArray(json.toString());
-                for (int i = 0; i < jsonArray.length(); i++) {
-                    JSONObject jsonObject = jsonArray.getJSONObject(i);
+        transactions.clear();
+        try (Connection connection = DatabaseConnection.getConnection()) {
+            String sql = "SELECT date, description, category, amount FROM transactions";
+            try (PreparedStatement statement = connection.prepareStatement(sql);
+                 ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
                     Map<String, String> transaction = new HashMap<>();
-                    transaction.put("date", jsonObject.getString("date"));
-                    transaction.put("desc", jsonObject.getString("desc"));
-                    transaction.put("category", jsonObject.getString("category"));
-                    transaction.put("amount", jsonObject.getString("amount"));
+                    transaction.put("date", resultSet.getString("date"));
+                    transaction.put("desc", resultSet.getString("description"));
+                    transaction.put("category", resultSet.getString("category"));
+                    transaction.put("amount", resultSet.getString("amount"));
                     transactions.add(transaction);
                 }
                 refreshTable();
-            } catch (IOException e) {
-                e.printStackTrace();
             }
+        } catch (SQLException e) {
+            e.printStackTrace();
         }
     }
 
     /**
      * Menghapus transaksi yang dipilih dari tabel dan memperbarui data.
      */
-    private void deleteSelectedTransactions() {
+    public void deleteSelectedTransactions() {
         List<Integer> rowsToDelete = new ArrayList<>();
 
         for (int row = 0; row < table.getRowCount(); row++) {
@@ -366,9 +375,10 @@ public class FinancialApp {
      * @param amount jumlah yang akan diformat
      * @return string mata uang yang diformat
      */
-    private String formatCurrency(String amount) {
+    public String formatCurrency(String amount) {
         double number = Double.parseDouble(amount);
-        return String.format("%,.0f", number);
+        NumberFormat formatter = NumberFormat.getInstance(new Locale("id", "ID"));
+        return formatter.format(number);
     }
 
     /**
@@ -376,25 +386,20 @@ public class FinancialApp {
      */
     private void exportToPDF() {
         try {
-            // Create a PDF writer and document
             PdfWriter writer = new PdfWriter("transactions.pdf");
             PdfDocument pdf = new PdfDocument(writer);
             Document document = new Document(pdf);
 
-            // Add title and spacing
             document.add(new Paragraph("Laporan Transaksi Keuangan").setBold().setFontSize(18));
             document.add(new Paragraph(" "));
 
-            // Create a table with the appropriate number of columns
             Table table = new Table(new float[]{1, 2, 2, 2});
 
-            // Add header cells
             table.addHeaderCell("Tanggal");
             table.addHeaderCell("Deskripsi");
             table.addHeaderCell("Kategori");
             table.addHeaderCell("Jumlah");
 
-            // Add transaction data to the table
             for (Map<String, String> transaction : transactions) {
                 table.addCell(transaction.get("date"));
                 table.addCell(transaction.get("desc"));
@@ -402,16 +407,12 @@ public class FinancialApp {
                 table.addCell("Rp" + formatCurrency(transaction.get("amount")));
             }
 
-            // Add the table to the document
             document.add(table);
 
-            // Close the document
             document.close();
 
-            // Show success message
             JOptionPane.showMessageDialog(frame, "Data berhasil diekspor ke PDF!", "Sukses", JOptionPane.INFORMATION_MESSAGE);
 
-            // Prompt for email address
             String email = JOptionPane.showInputDialog(frame, "Masukkan alamat email untuk mengirim PDF:");
             if (email != null && !email.isEmpty()) {
                 sendEmail(email, "Laporan Transaksi Keuangan", "Berikut adalah laporan transaksi keuangan Anda.", "transactions.pdf");
@@ -439,52 +440,36 @@ public class FinancialApp {
 
         Session session = Session.getInstance(properties, new Authenticator() {
             protected PasswordAuthentication getPasswordAuthentication() {
-                return new PasswordAuthentication("your-email@gmail.com", "your-password");
+                return new PasswordAuthentication("f34995975@gmail.com", "hcll mvld icgh xazg");
             }
         });
 
         try {
             Message message = new MimeMessage(session);
-            message.setFrom(new InternetAddress("your-email@gmail.com"));
+            message.setFrom(new InternetAddress("f34995975@gmail.com"));
             message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(to));
             message.setSubject(subject);
 
-            // Create a multipart message
             Multipart multipart = new MimeMultipart();
 
-            // Set the email body
             BodyPart messageBodyPart = new MimeBodyPart();
             messageBodyPart.setText(body);
             multipart.addBodyPart(messageBodyPart);
 
-            // Attach the PDF file
             messageBodyPart = new MimeBodyPart();
             DataSource source = new FileDataSource(filePath);
             messageBodyPart.setDataHandler(new DataHandler(source));
             messageBodyPart.setFileName("transactions.pdf");
             multipart.addBodyPart(messageBodyPart);
 
-            // Set the complete message parts
             message.setContent(multipart);
 
-            // Send the message
             Transport.send(message);
             JOptionPane.showMessageDialog(frame, "Email berhasil dikirim!", "Sukses", JOptionPane.INFORMATION_MESSAGE);
         } catch (MessagingException e) {
             e.printStackTrace();
             JOptionPane.showMessageDialog(frame, "Gagal mengirim email!", "Error", JOptionPane.ERROR_MESSAGE);
         }
-    }
-
-    public void addTransaction(Map<String, String> transaction) {
-     transactions.add(transaction);
-        saveTransactions();
-        refreshTable();
-        updateSummary();
-    }
-
-    public List<Map<String, String>> getTransactions() {
-        return transactions;
     }
 
     public String getIncomeLabelText() {
@@ -498,6 +483,7 @@ public class FinancialApp {
     public String getBalanceLabelText() {
         return balanceLabel.getText();
     }
+
 
     /**
      * Metode utama untuk meluncurkan FinancialApp.
