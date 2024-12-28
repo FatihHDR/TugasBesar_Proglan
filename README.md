@@ -33,7 +33,7 @@ Create a new database in MySQL:
 ```
 CREATE DATABASE financial_app;
 ```
-## Update the application.properties file in the src/main/resources directory with your MySQL credentials:
+Update the application.properties file in the src/main/resources directory with your MySQL credentials:
 ```
 spring.datasource.url=jdbc:mysql://localhost:3306/financial_app
 spring.datasource.username=your_username
